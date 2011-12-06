@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>Mandelbrot by creen</title>
+		<link href='http://fonts.googleapis.com/css?family=Ubuntu' rel='stylesheet' type='text/css'>
+		<style type="text/css">
+		html, body, #fractalDisplay {
+			position: absolute;
+			top: 0px;
+			left: 0px;
+			width: 100%;
+			height: 100%;
+			overflow: hidden;
+			padding: 0px;
+			margin: 0px;
+			border: 0px;
+			font-family: Ubuntu;
+		}
+		#fractalDisplay {
+			background-image: url("checks.jpg");
+		}
+		#controls {
+			position: absolute;
+			top: 20px;
+			left: 20px;
+			width: 25%;
+			padding: 10px;
+			background-color: rgba(255,255,255,0.3);
+			font-size: 0.8em;
+		}
+		#storageControls, #hint {
+			border-top: 1px solid rgba(255,255,255,0.3);
+			margin-top: 5px;
+			padding-top: 5px;
+		}
+		#hint {
+			font-size: 0.8em;
+		}
+		</style>
+		<script type="text/javascript" src="jquery-1.7.min.js"></script>
+		<script type="text/javascript" src="jquery.mousewheel.min.js"></script>
+		<script type="text/javascript" src="complex.js"></script>
+		<script type="text/javascript" src="one-color.js"></script>
+		<script type="text/javascript" src="mandelbrot.js"></script>
+		<script type="text/javascript">
+		function fakescale(element, scale, centerX, centerY) {
+			if(typeof($(element).data('originalWidth')) == "undefined") {
+				$(element).data('originalWidth', $(element).width());
+			}
+			if(typeof($(element).data('originalHeight')) == "undefined") {
+				$(element).data('originalHeight', $(element).height());
+			}
+			
+			$(element).width($(element).data('originalWidth')*scale);
+			$(element).height($(element).data('originalHeight')*scale);
+			$(element).css('left', ($(element).data('originalWidth')-$(element).data('originalWidth')*scale)/2);
+			$(element).css('top', ($(element).data('originalHeight')-$(element).data('originalHeight')*scale)/2);
+			document.title = scale;
+		}
+		
+		function drawLoadControls(renderer) {
+			var loadControls = $("#loadControls").empty();
+			var savedStates = localStorage.getItem("savedStates");
+			if(savedStates == null || savedStates == NaN) {
+				savedStates = 0;
+			}
+			savedStates = parseInt(savedStates);
+			
+			for(var savedIndex = 0; savedIndex < savedStates; savedIndex++) {
+				var loadButton = $("<button>").data('savedIndex', savedIndex).click(function() {
+					saved = localStorage.getItem("saved"+$(this).data('savedIndex'));
+					saved = saved.split('|');
+					renderer.center.x = parseFloat(saved[0]);
+					renderer.center.y = parseFloat(saved[1]);
+					renderer.scale = parseFloat(saved[2]);
+					renderer.generatePalette(parseInt(saved[3]));
+					
+					renderer.updated();
+				}).html("Load "+savedIndex);
+				loadControls.append(loadButton);
+			}
+		}
+		
+		$(function(){
+			var canvasElement = document.getElementById('fractalDisplay');
+			var informationElement = document.getElementById('informationDisplay');
+			var renderer = new MandelbrotRenderer(canvasElement, informationElement);
+			/*
+			$(canvasElement).click(function(event) {
+				renderer.center = renderer.viewToWorld(event.offsetX, event.offsetY);
+				renderer.scale *= 2;
+				renderer.updated();
+				//renderer.draw(event.offsetX-50, event.offsetY-50, 100, 100);
+			});
+			*/
+			
+			$(canvasElement).mousewheel(function(event){
+				renderer.center = renderer.viewToWorld(event.offsetX, event.offsetY);
+				if(event.wheelDelta > 0) {
+					renderer.scale *= 2;
+				} else {
+					renderer.scale /= 2;
+				}
+				renderer.updated();
+			});
+			
+			$(window).keydown(function(event) {
+				if(event.which == 33) {
+					// pageup
+					renderer.generatePalette(renderer.palette.length+1);
+					renderer.redraw(true);
+				} else if (event.which == 34) {
+					// pagedown
+					renderer.generatePalette(renderer.palette.length-1);
+					renderer.redraw(true);
+				} else if (event.which == 32) {
+					renderer.redraw();
+				} else {
+					//console.log(event.which);
+				}
+			});
+			
+			$(window).resize(function() {
+				renderer.updated();
+			});
+			
+			$("#saveButton").click(function(){
+				if(typeof(localStorage) == 'undefined' ) {
+					alert("Your browser does not support HTML5 localStorage. Try upgrading.");
+				} else {
+					try {
+						var savedStates = localStorage.getItem("savedStates");
+						if(savedStates == null || savedStates == NaN) {
+							savedStates = 0;
+						}
+						savedStates = parseInt(savedStates);
+
+						localStorage.setItem("saved"+savedStates, renderer.center.x.toString()+"|"+renderer.center.y.toString()+"|"+renderer.scale.toString()+"|"+renderer.palette.length);
+						
+						savedStates++;
+						localStorage.setItem("savedStates", savedStates);
+						
+						drawLoadControls(renderer);
+					} catch (e) {
+						if (e == QUOTA_EXCEEDED_ERR) {
+							alert("Quota exceeded!"); //data wasn’t successfully saved due to quota exceed so throw an error
+						}
+					}
+				}
+			});
+			
+			$("#clearButton").click(function(){
+				localStorage.clear();
+				drawLoadControls(renderer);
+			});
+			
+			$("#resetButton").click(function(){
+				renderer.reset();
+				renderer.redraw();
+			});
+			
+			$("#getImageButton").click(function(){
+				dataurl = canvasElement.toDataURL("image/png");
+				window.open(dataurl);
+			});
+			
+			// Init
+			drawLoadControls(renderer);
+			renderer.updated();
+		});
+		</script>
+	</head>
+	<body>
+		<canvas id="fractalDisplay"></canvas>
+		<section id="controls"><div id="informationDisplay"></div><div id="storageControls"><button id="getImageButton">Get image</button><button id="resetButton">Reset</button><button id="saveButton">Save</button><button id="clearButton">Clear</button><div id="loadControls"></div></div><div id="hint">Use your mousewheel to zoom into the fractal.</div></section>
+	</body>
+</html>
