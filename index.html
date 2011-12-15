@@ -96,12 +96,18 @@
 			*/
 			
 			$(canvasElement).mousewheel(function(event){
-				renderer.center = renderer.viewToWorld(event.offsetX, event.offsetY);
-				if(event.wheelDelta > 0) {
-					renderer.scale *= 2;
-				} else {
-					renderer.scale /= 2;
+				var clickCoords = renderer.viewToWorld(event.offsetX, event.offsetY),
+					zoomFactor = 2;
+				
+				if(event.wheelDelta < 0) {
+					zoomFactor = 1 / zoomFactor;
 				}
+				renderer.scale *= zoomFactor;
+				renderer.center = {
+					x: (renderer.center.x - clickCoords.x * (1 - zoomFactor)) / zoomFactor,
+					y: (renderer.center.y - clickCoords.y * (1 - zoomFactor)) / zoomFactor
+				};
+				
 				renderer.updated();
 			});
 			
